@@ -2,7 +2,6 @@ import pandas as pd
 import streamlit as st
 import plotly.express as px
 import statsmodels.api as sm
-import numpy as np
 from scipy.stats import ttest_1samp
 
 # Configurações iniciais do Streamlit
@@ -57,17 +56,16 @@ st.markdown("<div class='main-title'>TikTok Data Insights</div>", unsafe_allow_h
 # Barra lateral com opções
 st.sidebar.markdown("<div class='sidebar-title'>Navegação</div>", unsafe_allow_html=True)
 menu = [
-    '📊 Análise Exploratória', 
-    '🏆 Melhores Vídeos', 
-    '📈 Modelos de Regressão', 
-    '🔍 Testes de Hipóteses', 
-    '🎯 Filtragem de Dados', 
-    '💡 Insights e Limitações'
+    ' Análise Exploratória', 
+    ' Melhores Vídeos', 
+    ' Modelos de Regressão', 
+    ' Testes de Hipóteses', 
+    ' Filtragem de Dados', 
 ]
 choice = st.sidebar.radio("Escolha uma opção:", menu)
 
-if choice == '📊 Análise Exploratória':
-    st.header("📊 Análise Exploratória")
+if choice == ' Análise Exploratória':
+    st.header(" Análise Exploratória")
     st.write("Exploração inicial dos dados com estatísticas descritivas e padrões observados.")
     col1, col2 = st.columns(2)
     
@@ -81,30 +79,47 @@ if choice == '📊 Análise Exploratória':
         st.plotly_chart(fig, use_container_width=True)
 
     st.subheader("Correlação entre Métricas")
-    corr = df[['video_view_count', 'video_like_count', 'video_comment_count']].corr()
-    fig_corr = px.imshow(corr, text_auto=True, title="Mapa de Correlação")
+    # Calcular a matriz de correlação com valores absolutos
+    corr = df[['video_view_count', 'video_like_count', 'video_comment_count', 
+               'video_duration_sec', 'video_download_count', 'video_share_count']].corr().abs()
+    # Plotar o mapa de correlação
+    fig_corr = px.imshow(
+        corr,
+        text_auto=True,
+        color_continuous_scale='Blues',
+        title="Mapa de Correlação Entre Métricas (0 a 1)",
+        labels=dict(color="Correlação (|r|)")
+    )
     st.plotly_chart(fig_corr, use_container_width=True)
 
-elif choice == '🏆 Melhores Vídeos':
-    st.header("🏆 Melhores Vídeos")
+elif choice == ' Melhores Vídeos':
+    st.header(" Melhores Vídeos")
     st.write("Identifique os vídeos mais populares com base no número de visualizações.")
+
+    # Selecionar os 10 vídeos mais populares
     top_videos = df.sort_values(by='video_view_count', ascending=False).head(10)
-    fig = px.bar(
+
+    # Gráfico de dispersão (bubble chart)
+    fig = px.scatter(
         top_videos,
-        x='video_id',
-        y='video_view_count',
-        title="Top 10 Vídeos com Mais Visualizações",
-        labels={'video_view_count': 'Visualizações', 'video_id': 'ID do Vídeo'},
-        color='video_view_count',
-        text='video_view_count',
-        color_continuous_scale='Viridis'
+        x='video_like_count',
+        y='video_comment_count',
+        size='video_view_count',
+        color='video_share_count',
+        title="Top 10 Vídeos Mais Populares no TikTok (Com base em Curtidas e Comentários)",
+        labels={
+            'video_like_count': 'Número de Curtidas',
+            'video_comment_count': 'Número de Comentários',
+            'video_view_count': 'Número de Visualizações',
+            'video_share_count': 'Número de Compartilhamentos'
+        },
+        hover_data=['video_id']
     )
-    fig.update_traces(texttemplate='%{text:.2s}', textposition='outside')
+    fig.update_traces(marker=dict(opacity=0.8, line=dict(width=1, color='DarkSlateGrey')))
     fig.update_layout(
-        xaxis=dict(title="ID do Vídeo"),
-        yaxis=dict(title="Visualizações"),
-        template="plotly_white",
-        showlegend=False
+        xaxis=dict(title="Número de Curtidas"),
+        yaxis=dict(title="Número de Comentários"),
+        template="plotly_white"
     )
     st.plotly_chart(fig, use_container_width=True)
 
@@ -114,13 +129,16 @@ elif choice == '🏆 Melhores Vídeos':
     top_videos_display.columns = ['ID do Vídeo', 'Visualizações', 'Curtidas', 'Comentários']
     st.dataframe(top_videos_display)
 
-elif choice == '📈 Modelos de Regressão':
-    st.header("📈 Modelos de Regressão Linear")
+elif choice == ' Modelos de Regressão':
+    st.header(" Modelos de Regressão Linear")
     st.write("Analise como diferentes métricas influenciam as visualizações dos vídeos.")
 
     col1, col2 = st.columns(2)
     with col1:
-        x_col = st.selectbox("Selecione a variável independente (X):", ['video_like_count', 'video_comment_count'])
+        x_col = st.selectbox("Selecione a variável independente (X):", [
+            'video_like_count', 'video_comment_count', 
+            'video_duration_sec', 'video_download_count', 'video_share_count'
+        ])
     with col2:
         y_col = 'video_view_count'
         st.write(f"Variável dependente (Y): {y_col}")
@@ -149,12 +167,15 @@ elif choice == '📈 Modelos de Regressão':
         prediction = model.predict([1, input_value])[0]
         st.success(f"Previsão de visualizações: {prediction:.2f}")
 
-elif choice == '🔍 Testes de Hipóteses':
-    st.header("🔍 Testes de Hipóteses")
+elif choice == ' Testes de Hipóteses':
+    st.header(" Testes de Hipóteses")
     st.write("Teste hipóteses relacionadas às métricas dos vídeos do TikTok.")
 
     st.subheader("Escolha os Parâmetros para o Teste de Hipótese")
-    metric = st.selectbox("Escolha a métrica para o teste:", ['likes_per_view', 'comments_per_view'])
+    metric = st.selectbox("Escolha a métrica para o teste:", [
+        'likes_per_view', 'comments_per_view', 
+        'video_duration_sec', 'video_download_count', 'video_share_count'
+    ])
     pop_mean = st.number_input(f"Média populacional esperada para {metric}:", min_value=0.0, step=0.01, value=0.1)
 
     if st.button("Executar Teste de Hipótese"):
@@ -177,8 +198,8 @@ elif choice == '🔍 Testes de Hipóteses':
     fig = px.histogram(df, x=metric, nbins=30, title=f"Distribuição de {metric}")
     st.plotly_chart(fig, use_container_width=True)
 
-elif choice == '🎯 Filtragem de Dados':
-    st.header("🎯 Filtragem de Dados")
+elif choice == ' Filtragem de Dados':
+    st.header(" Filtragem de Dados")
     st.write("Filtre vídeos com base em critérios personalizados.")
 
     col1, col2, col3 = st.columns(3)
@@ -187,13 +208,21 @@ elif choice == '🎯 Filtragem de Dados':
     with col2:
         min_likes = st.slider("Mínimo de Curtidas", min_value=0, max_value=int(df['video_like_count'].max()), value=500)
     with col3:
-        min_duration = st.slider("Duração Mínima (segundos)", min_value=0, max_value=int(df['video_duration_sec'].max()), value=10)
+                min_duration = st.slider("Duração Mínima (segundos)", min_value=0, max_value=int(df['video_duration_sec'].max()), value=10)
+
+    col4, col5 = st.columns(2)
+    with col4:
+        min_downloads = st.slider("Mínimo de Downloads", min_value=0, max_value=int(df['video_download_count'].max()), value=10)
+    with col5:
+        min_shares = st.slider("Mínimo de Compartilhamentos", min_value=0, max_value=int(df['video_share_count'].max()), value=10)
 
     # Aplicar os filtros
     filtered_df = df[
         (df['video_view_count'] >= min_views) &
         (df['video_like_count'] >= min_likes) &
-        (df['video_duration_sec'] >= min_duration)
+        (df['video_duration_sec'] >= min_duration) &
+        (df['video_download_count'] >= min_downloads) &
+        (df['video_share_count'] >= min_shares)
     ]
 
     st.subheader("Resultados da Filtragem")
@@ -206,25 +235,9 @@ elif choice == '🎯 Filtragem de Dados':
             filtered_df,
             x='video_view_count',
             nbins=30,
-            title="Distribuição de Visualizações dos Filtrados",
+            title="Distribuição de Visualizações dos Vídeos Filtrados",
             labels={'video_view_count': 'Visualizações'}
         )
         st.plotly_chart(fig_filtered, use_container_width=True)
     else:
         st.warning("Nenhum vídeo encontrado com os critérios selecionados. Ajuste os filtros e tente novamente.")
-
-elif choice == '💡 Insights e Limitações':
-    st.header("💡 Insights e Limitações")
-    st.subheader("Principais Insights")
-    st.write("""
-    - **Curtidas por visualização** é uma métrica importante para medir o engajamento.
-    - Vídeos com mais comentários frequentemente têm maior número de visualizações.
-    - Vídeos com duração média (20 a 40 segundos) mostram maior engajamento.
-    """)
-
-    st.subheader("Limitações")
-    st.write("""
-    - O dataset pode estar limitado a um período específico.
-    - Dados ausentes podem afetar a precisão dos resultados.
-    - A análise considera relações lineares, ignorando potenciais não linearidades.
-    """)
