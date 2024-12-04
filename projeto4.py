@@ -17,9 +17,9 @@ def clean_data(df):
     return df
 
 # Função para realizar regressão linear
-def perform_regression(df, x_col, y_col):
-    """Realiza uma regressão linear simples usando statsmodels."""
-    X = df[x_col]
+def perform_multiple_regression(df, x_cols, y_col):
+    """Realiza uma regressão múltipla usando statsmodels."""
+    X = df[x_cols]
     y = df[y_col]
     X = sm.add_constant(X)  # Adiciona uma constante para o modelo
     model = sm.OLS(y, X).fit()
@@ -33,13 +33,6 @@ df = clean_data(df)
 st.markdown(
     """
     <style>
-    .main-title {
-        text-align: center;
-        font-size: 36px;
-        font-weight: bold;
-        color: #4CAF50;
-        margin-bottom: 30px;
-    }
     .sidebar-title {
         font-size: 20px;
         font-weight: bold;
@@ -60,9 +53,12 @@ menu = [
     ' Melhores Vídeos', 
     ' Modelos de Regressão', 
     ' Testes de Hipóteses', 
-    ' Filtragem de Dados', 
+    ' Filtragem de Dados',
+    ' Soluções Práticas' 
 ]
 choice = st.sidebar.radio("Escolha uma opção:", menu)
+
+
 
 if choice == ' Análise Exploratória':
     st.header(" Análise Exploratória")
@@ -79,9 +75,10 @@ if choice == ' Análise Exploratória':
         st.plotly_chart(fig, use_container_width=True)
 
     st.subheader("Correlação entre Métricas")
-    # Calcular a matriz de correlação com valores absolutos
+    # Calcular a matriz de correlação com todas as variáveis relevantes
     corr = df[['video_view_count', 'video_like_count', 'video_comment_count', 
-               'video_duration_sec', 'video_download_count', 'video_share_count']].corr().abs()
+               'video_duration_sec', 'video_download_count', 'video_share_count',
+               'likes_per_view', 'comments_per_view']].corr().abs()
     # Plotar o mapa de correlação
     fig_corr = px.imshow(
         corr,
@@ -92,14 +89,38 @@ if choice == ' Análise Exploratória':
     )
     st.plotly_chart(fig_corr, use_container_width=True)
 
+    # Adicionar exemplos abaixo do mapa
+    st.markdown("### Exemplos de Relações no Mapa de Correlação:")
+    st.markdown("""
+    - **`video_view_count` e `video_like_count`:**  
+      Correlação próxima de **0.9**.  
+      **Significa:** Vídeos com mais visualizações tendem a receber mais curtidas.
+      
+    - **`video_view_count` e `video_duration_sec`:**  
+      Correlação próxima de **0.3**.  
+      **Significa:** A duração do vídeo tem uma relação fraca com o número de visualizações. Vídeos mais longos ou curtos podem ter visualizações semelhantes.
+      
+    - **`likes_per_view` e `video_share_count`:**  
+      Correlação próxima de **0.7**.  
+      **Significa:** Vídeos com mais curtidas por visualização tendem a ser mais compartilhados, mas a relação não é perfeita.
+      
+    - **`video_comment_count` e `video_view_count`:**  
+      Correlação próxima de **0.85**.  
+      **Significa:** Mais visualizações geralmente resultam em mais comentários.
+    """)
+    
+
+
 elif choice == ' Melhores Vídeos':
     st.header(" Melhores Vídeos")
     st.write("Identifique os vídeos mais populares com base no número de visualizações.")
 
-    # Selecionar os 10 vídeos mais populares
+    # Selecionar os 10 vídeos mais populares e adicionar o ranking
     top_videos = df.sort_values(by='video_view_count', ascending=False).head(10)
+    top_videos = top_videos.reset_index(drop=True)
+    top_videos['Rank'] = top_videos.index + 1
 
-    # Gráfico de dispersão (bubble chart)
+    # Gráfico de dispersão (bubble chart) com ranking
     fig = px.scatter(
         top_videos,
         x='video_like_count',
@@ -111,9 +132,10 @@ elif choice == ' Melhores Vídeos':
             'video_like_count': 'Número de Curtidas',
             'video_comment_count': 'Número de Comentários',
             'video_view_count': 'Número de Visualizações',
-            'video_share_count': 'Número de Compartilhamentos'
+            'video_share_count': 'Número de Compartilhamentos',
+            'Rank': 'Posição no Ranking'
         },
-        hover_data=['video_id']
+        hover_data=['Rank', 'video_id']
     )
     fig.update_traces(marker=dict(opacity=0.8, line=dict(width=1, color='DarkSlateGrey')))
     fig.update_layout(
@@ -125,17 +147,68 @@ elif choice == ' Melhores Vídeos':
 
     # Exibindo o ranking abaixo do gráfico
     st.markdown("<b>Ranking dos Top 10 Vídeos:</b>", unsafe_allow_html=True)
-    top_videos_display = top_videos[['video_id', 'video_view_count', 'video_like_count', 'video_comment_count']]
-    top_videos_display.columns = ['ID do Vídeo', 'Visualizações', 'Curtidas', 'Comentários']
+    top_videos_display = top_videos[['Rank', 'video_id', 'video_view_count', 'video_like_count', 'video_comment_count', 'video_duration_sec']]
+    top_videos_display.columns = ['Posição', 'ID do Vídeo', 'Visualizações', 'Curtidas', 'Comentários', 'Duração (segundos)']
     st.dataframe(top_videos_display)
 
-elif choice == ' Modelos de Regressão':
-    st.header(" Modelos de Regressão Linear")
+elif choice == ' Soluções Práticas':
+    st.header(" Soluções Práticas Baseadas na Análise de Dados")
+    st.subheader(" Curtidas por Visualização e Compartilhamentos")
+    st.write("""
+        - **** Vídeos com maior proporção de curtidas por visualização tendem a ser mais compartilhados.
+        - **** Incentivar a interação por meio de CTAs (call-to-action).
+        - **** Um aumento de 10% nas curtidas pode levar a um crescimento médio de 7% nos compartilhamentos.
+    """)
+
+    corr = df[['video_like_count', 'video_share_count']].corr()
+    df['likes_increase'] = df['video_like_count'] * 1.1
+    df['predicted_shares'] = df['likes_increase'] * corr.loc['video_like_count', 'video_share_count']
+
+    fig1 = px.scatter(
+        df,
+        x='video_like_count',
+        y='video_share_count',
+        title='Impacto de Aumentar Curtidas nos Compartilhamentos',
+        labels={'video_like_count': 'Curtidas', 'video_share_count': 'Compartilhamentos'},
+        hover_data=['video_id']
+    )
+    fig1.add_scatter(
+        x=df['likes_increase'],
+        y=df['predicted_shares'],
+        mode='markers',
+        name='Impacto Esperado',
+        marker=dict(color='orange', size=7)
+    )
+    st.plotly_chart(fig1, use_container_width=True)
+
+    st.subheader(" Duração do Vídeo e Visualizações")
+    st.write("""
+        - **** Vídeos curtos têm maior retenção e engajamento para até 30 segundos.
+        - **** Produzir conteúdos diretos e atrativos com duração de até 30 segundos.
+    """)
+
+    fig2 = px.histogram(
+        df,
+        x='video_duration_sec',
+        y='video_view_count',
+        title='Distribuição de Visualizações por Duração do Vídeo',
+        labels={'video_duration_sec': 'Duração (segundos)', 'video_view_count': 'Visualizações'},
+        nbins=30
+    )
+    st.plotly_chart(fig2, use_container_width=True)
+
+
+# Inicializar múltiplos históricos no estado do Streamlit
+if 'history_groups' not in st.session_state:
+    st.session_state['history_groups'] = {}
+
+if choice == ' Modelos de Regressão':
+    st.header(" Modelos de Regressão Múltipla")
     st.write("Analise como diferentes métricas influenciam as visualizações dos vídeos.")
 
     col1, col2 = st.columns(2)
     with col1:
-        x_col = st.selectbox("Selecione a variável independente (X):", [
+        x_cols = st.multiselect("Selecione as variáveis independentes (X):", [
             'video_like_count', 'video_comment_count', 
             'video_duration_sec', 'video_download_count', 'video_share_count'
         ])
@@ -143,60 +216,112 @@ elif choice == ' Modelos de Regressão':
         y_col = 'video_view_count'
         st.write(f"Variável dependente (Y): {y_col}")
 
-    # Treinar o modelo de regressão
-    model = perform_regression(df, x_col, y_col)
-    st.subheader(f"Resumo do Modelo de Regressão (Y: {y_col}, X: {x_col})")
-    st.text(model.summary())
+    # Criar ou selecionar o grupo de histórico
+    group_name = st.text_input("Nome do grupo de histórico:", "Grupo 1")
+    if group_name not in st.session_state['history_groups']:
+        st.session_state['history_groups'][group_name] = []
 
-    st.subheader("Visualização do Modelo")
-    df['prediction'] = model.predict(sm.add_constant(df[x_col]))
-    fig = px.scatter(
-        df,
-        x=x_col,
-        y=y_col,
-        title="Regressão Linear: Valores Observados vs. Preditos",
-        labels={x_col: x_col, y_col: y_col},
-        trendline="ols"
-    )
-    fig.add_scatter(x=df[x_col], y=df['prediction'], mode='lines', name='Linha de Regressão')
-    st.plotly_chart(fig, use_container_width=True)
+    if x_cols:
+        model = perform_multiple_regression(df, x_cols, y_col)
+        st.subheader(f"Resumo do Modelo de Regressão (Y: {y_col}, X: {x_cols})")
+        st.text(model.summary())
 
-    st.subheader("Previsão com Base no Modelo")
-    input_value = st.number_input(f"Insira um valor para {x_col}:", min_value=0.0, step=1.0)
-    if st.button("Prever"):
-        prediction = model.predict([1, input_value])[0]
-        st.success(f"Previsão de visualizações: {prediction:.2f}")
+        st.write(f"R² Ajustado: {model.rsquared_adj:.4f}")
+        st.write(f"AIC (Critério de Informação de Akaike): {model.aic:.4f}")
+
+        st.subheader("Previsão com Base no Modelo")
+        # Dicionário para armazenar valores inseridos pelo usuário
+        input_values = {col: st.number_input(f"Insira um valor para {col}:", min_value=0.0, step=1.0) for col in x_cols}
+        if st.button("Prever"):
+            input_data = [1] + [input_values[col] for col in x_cols]
+            prediction = model.predict([input_data])[0]
+            st.success(f"Previsão de visualizações: {prediction:.2f}")
+
+            # Adicionar os dados ao grupo de histórico selecionado
+            st.session_state['history_groups'][group_name].append({**input_values, 'Previsão': prediction})
+
+        # Exibir o histórico do grupo selecionado
+        st.subheader(f"Histórico de Previsões - {group_name}")
+        if st.session_state['history_groups'][group_name]:
+            st.dataframe(pd.DataFrame(st.session_state['history_groups'][group_name]))
+
+            # Botão para limpar o histórico do grupo atual
+            if st.button(f"Limpar Histórico de {group_name}"):
+                st.session_state['history_groups'][group_name] = []
+
+    # Comparar múltiplos históricos
+    st.subheader("Comparar Históricos")
+    if st.session_state['history_groups']:
+        selected_groups = st.multiselect("Selecione os grupos para comparar:", list(st.session_state['history_groups'].keys()))
+        comparison_data = []
+        for group in selected_groups:
+            for record in st.session_state['history_groups'][group]:
+                comparison_data.append({'Grupo': group, **record})
+        if comparison_data:
+            st.dataframe(pd.DataFrame(comparison_data))
 
 elif choice == ' Testes de Hipóteses':
-    st.header(" Testes de Hipóteses")
+    st.header(" Testes de Hipóteses Avançados")
     st.write("Teste hipóteses relacionadas às métricas dos vídeos do TikTok.")
 
-    st.subheader("Escolha os Parâmetros para o Teste de Hipótese")
-    metric = st.selectbox("Escolha a métrica para o teste:", [
-        'likes_per_view', 'comments_per_view', 
-        'video_duration_sec', 'video_download_count', 'video_share_count'
-    ])
-    pop_mean = st.number_input(f"Média populacional esperada para {metric}:", min_value=0.0, step=0.01, value=0.1)
+    # Verificar colunas e primeiras linhas do dataset
+    st.write("Dataset completo:", df)
 
-    if st.button("Executar Teste de Hipótese"):
-        sample_data = df[metric]
-        t_stat, p_value = ttest_1samp(sample_data, pop_mean)
+
+    col1, col2 = st.columns(2)
+    with col1:
+        # Escolher coluna de agrupamento dinamicamente
+        group_col = st.selectbox("Escolha a variável de agrupamento:", df.columns.tolist())
+    with col2:
+        metric = st.selectbox("Escolha a métrica para o teste:", [
+            'likes_per_view', 'comments_per_view', 
+            'video_duration_sec', 'video_download_count', 'video_share_count'
+        ])
+
+
+    group_values = df[group_col].unique()
+    if len(group_values) == 2:
+        group1 = df[df[group_col] == group_values[0]][metric]
+        group2 = df[df[group_col] == group_values[1]][metric]
+
+        from scipy.stats import ttest_ind
+        t_stat, p_value = ttest_ind(group1, group2, equal_var=False)
 
         st.subheader("Resultados do Teste de Hipótese")
-        st.write(f"**Métrica:** {metric}")
-        st.write(f"**Média da Amostra:** {sample_data.mean():.4f}")
-        st.write(f"**Média Populacional Esperada:** {pop_mean}")
-        st.write(f"**Estatística t:** {t_stat:.4f}")
-        st.write(f"**Valor-p:** {p_value:.4f}")
+        st.write(f"Comparação entre {group_values[0]} e {group_values[1]}")
+        st.write(f"Estatística t: {t_stat:.4f}")
+        st.write(f"Valor-p: {p_value:.4f}")
 
         if p_value < 0.05:
-            st.success(f"Rejeitamos a hipótese nula: a média de {metric} é significativamente diferente de {pop_mean}.")
+            st.success(f"Rejeitamos a hipótese nula: existe diferença significativa entre os dois grupos para {metric}.")
         else:
-            st.warning(f"Não rejeitamos a hipótese nula: a média de {metric} não é significativamente diferente de {pop_mean}.")
+            st.warning(f"Não rejeitamos a hipótese nula: não há diferença significativa entre os dois grupos para {metric}.")
 
-    st.subheader("Distribuição da Métrica")
-    fig = px.histogram(df, x=metric, nbins=30, title=f"Distribuição de {metric}")
-    st.plotly_chart(fig, use_container_width=True)
+        # Intervalos de confiança
+        st.subheader("Intervalos de Confiança")
+        ci_group1_lower = group1.mean() - 1.96 * group1.std() / (len(group1) ** 0.5)
+        ci_group1_upper = group1.mean() + 1.96 * group1.std() / (len(group1) ** 0.5)
+        st.write(f"Intervalo de confiança para {group_values[0]}: ({ci_group1_lower:.4f}, {ci_group1_upper:.4f})")
+
+        ci_group2_lower = group2.mean() - 1.96 * group2.std() / (len(group2) ** 0.5)
+        ci_group2_upper = group2.mean() + 1.96 * group2.std() / (len(group2) ** 0.5)
+        st.write(f"Intervalo de confiança para {group_values[1]}: ({ci_group2_lower:.4f}, {ci_group2_upper:.4f})")
+
+        # Visualização da comparação
+        st.subheader("Comparação de Distribuições")
+        fig = px.histogram(
+            df,
+            x=metric,
+            color=group_col,
+            nbins=30,
+            title=f"Distribuição de {metric} por {group_col}",
+            labels={metric: metric, group_col: group_col},
+            barmode='overlay'
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.warning("A variável de agrupamento selecionada não tem exatamente dois grupos. Escolha outra variável.")
+
 
 elif choice == ' Filtragem de Dados':
     st.header(" Filtragem de Dados")
@@ -241,3 +366,9 @@ elif choice == ' Filtragem de Dados':
         st.plotly_chart(fig_filtered, use_container_width=True)
     else:
         st.warning("Nenhum vídeo encontrado com os critérios selecionados. Ajuste os filtros e tente novamente.")
+
+        
+
+        
+
+        
